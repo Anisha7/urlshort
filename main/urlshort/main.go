@@ -4,6 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"reflect"
+
+	"gopkg.in/yaml.v2"
 )
 
 var path = flag.String("-path", "", "path to get")
@@ -25,17 +28,20 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 		if prs == true {
 			// you got the url
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Println("HERE1")
 				fmt.Fprintln(w, url)
 			})
 		}
 		// else, path not in map
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Println("HERE2")
 			fmt.Fprintln(w, fallback)
 		})
 
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("HERE3")
 		fmt.Fprintln(w, fallback)
 	})
 }
@@ -56,7 +62,24 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 //
 // See MapHandler to create a similar http.HandlerFunc via
 // a mapping of paths to urls.
-// func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
-// 	// TODO: Implement this...
-// 	return nil, nil
-// }
+func YAMLHandler(yaml []byte, fallback http.Handler) (http.HandlerFunc, error) {
+	parsedYaml, err := parseYAML(yaml)
+	if err != nil {
+		return nil, err
+	}
+	pathMap := buildMap(parsedYaml)
+	return MapHandler(pathMap, fallback), nil
+}
+
+func parseYAML(yml []byte) (map[string]string, error) { // note: check what type to return
+	out := ""
+	item := yaml.Unmarshal(yml, &out)
+	fmt.Println(out)
+	fmt.Println(item)
+	fmt.Println(reflect.TypeOf(item))
+	return nil, fmt.Errorf("parsed yaml")
+}
+
+func buildMap(parsedYaml map[string]string) map[string]string { // specify type
+	return nil
+}
