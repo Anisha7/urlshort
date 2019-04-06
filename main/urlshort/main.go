@@ -2,9 +2,7 @@ package urlshort
 
 import (
 	"flag"
-	"fmt"
 	"net/http"
-	"reflect"
 
 	"gopkg.in/yaml.v2"
 )
@@ -23,27 +21,17 @@ func main() {
 // http.Handler will be called instead.
 func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.HandlerFunc {
 
-	if *path != "" {
-		url, prs := pathsToUrls[*path]
-		if prs == true {
-			// you got the url
-			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				fmt.Println("HERE1")
-				fmt.Fprintln(w, url)
-			})
+	return func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		// if we can match a path...
+		if dest, ok := pathsToUrls[path]; ok {
+			// redirect to it
+			http.Redirect(w, r, dest, http.StatusFound)
+			return
 		}
-		// else, path not in map
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			fmt.Println("HERE2")
-			fmt.Fprintln(w, fallback)
-		})
-
+		// else. . .
+		fallback.ServeHTTP(w, r)
 	}
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("HERE3")
-		fmt.Fprintln(w, fallback)
-	})
 }
 
 // YAMLHandler will parse the provided YAML and then return
@@ -62,24 +50,25 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 //
 // See MapHandler to create a similar http.HandlerFunc via
 // a mapping of paths to urls.
-func YAMLHandler(yaml []byte, fallback http.Handler) (http.HandlerFunc, error) {
-	parsedYaml, err := parseYAML(yaml)
+func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
+	// Parse the yaml
+	var pathUrls []pathUrl
+	err := yaml.Unmarshal(yml, &pathUrls)
 	if err != nil {
 		return nil, err
 	}
-	pathMap := buildMap(parsedYaml)
-	return MapHandler(pathMap, fallback), nil
+
+	// Convert YAML array into map
+	pathsToUrls := make(map[string]string)
+	for _, pu := range pathUrls {
+		pathsToUrls[pu.Path] = pu.URL
+	}
+
+	// return a map handler using the map
+	return MapHandler(pathsToUrls, fallback), nil
 }
 
-func parseYAML(yml []byte) (map[string]string, error) { // note: check what type to return
-	out := ""
-	item := yaml.Unmarshal(yml, &out)
-	fmt.Println(out)
-	fmt.Println(item)
-	fmt.Println(reflect.TypeOf(item))
-	return nil, fmt.Errorf("parsed yaml")
-}
-
-func buildMap(parsedYaml map[string]string) map[string]string { // specify type
-	return nil
+type pathUrl struct {
+	Path string `yaml:"path"`
+	URL  string `yaml:"url"`
 }
